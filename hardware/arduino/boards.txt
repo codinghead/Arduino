@@ -2,6 +2,24 @@
 
 ##############################################################
 
+auto.name=Arduino Auto
+auto.upload.protocol=arduino
+auto.upload.maximum_size=65536
+auto.upload.speed=115200
+auto.bootloader.low_fuses=0xff
+auto.bootloader.high_fuses=0xde
+auto.bootloader.extended_fuses=0x05
+auto.bootloader.path=optiboot
+auto.bootloader.file=optiboot_atmega328.hex
+auto.bootloader.unlock_bits=0x3F
+auto.bootloader.lock_bits=0x0F
+auto.build.mcu=atmega64
+auto.build.f_cpu=16000000L
+auto.build.core=arduino
+auto.build.variant=standard
+
+##############################################################
+
 uno.name=Arduino Uno
 uno.upload.protocol=arduino
 uno.upload.maximum_size=32256
