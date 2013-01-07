@@ -246,6 +246,10 @@ void appStart() __attribute__ ((naked));
 #elif defined(__AVR_ATmega8__) || defined(__AVR_ATmega88__)
 #define RAMSTART (0x100)
 #define NRWWSTART (0x1800)
+#elif defined(__AVR_ATmega32M1__)
+#define RAMSTART (0x100)
+// NRWWSTART comes from datasheet, bootloader section
+#define NRWWSTART (0x3800)
 #endif
 
 /* C zero initialises all global variables. However, that requires */
@@ -299,6 +303,11 @@ int main(void) {
   UCSRB = _BV(RXEN) | _BV(TXEN);  // enable Rx & Tx
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);  // config USART; 8N1
   UBRRL = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
+#elif __AVR_ATmega32M1__
+  // Sets USART mode and enables full-duplex communication
+  LINCR  = _BV(LENA) | _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
+  // Assumes LINBTR LBTR[5:0] is default value of 32 after reset
+  LINBRR = (uint8_t)( F_CPU / (32 * BAUD_RATE));
 #else
   UCSR0A = _BV(U2X0); //Double speed mode USART0
   UCSR0B = _BV(RXEN0) | _BV(TXEN0);
@@ -502,8 +511,14 @@ int main(void) {
 
 void putch(char ch) {
 #ifndef SOFT_UART
+#if __AVR_ATmega32M1__
+  // Check the LTXOK bit in the LIN status register
+  while(!(LINSIR & _BV(LTXOK)));
+  LINDAT = ch;
+#else
   while (!(UCSR0A & _BV(UDRE0)));
   UDR0 = ch;
+#endif
 #else
   __asm__ __volatile__ (
     "   com %[ch]\n" // ones complement, carry set
@@ -565,6 +580,15 @@ uint8_t getch(void) {
     :
       "r25"
 );
+#elif defined(__AVR_ATmega32M1__)
+  while(!(LINSIR & _BV(LRXOK)));
+  
+  if (!(LINSIR & _BV(LERR))) {
+    watchdogReset();
+  }
+
+  ch = LINDAT;
+  
 #else
   while(!(UCSR0A & _BV(RXC0)))
     ;
