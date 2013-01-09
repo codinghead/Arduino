@@ -78,3 +78,20 @@
 #define UART_RX_BIT 0
 #endif
 #endif
+
+#if defined (__AVR_ATmega32M1__)
+/* Onboard LED is connected to pin PB5 Allegro */ 
+#define LED_DDR     DDRB
+#define LED_PORT    PORTB
+#define LED_PIN     PINB
+#define LED         PINB5
+
+/* Ports for soft UART */
+#ifdef SOFT_UART
+#define UART_PORT   PORTD
+#define UART_PIN    PIND
+#define UART_DDR    DDRD
+#define UART_TX_BIT 1
+#define UART_RX_BIT 0
+#endif
+#endif
