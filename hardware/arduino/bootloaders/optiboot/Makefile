@@ -422,7 +422,7 @@ luminet_isp: isp
 ### /* CODINGHEAD */
 
 allegro: TARGET = allegro
-allegro: MCU_TARGET = atmega32m1
+allegro: MCU_TARGET = atmega32c1
 allegro: CFLAGS += '-DLED_START_FLASHES=3' '-DBAUD_RATE=115200'
 allegro: AVR_FREQ = 16000000L
 # CODINGHEAD - currently unclear what this next line actually does/specifies
@@ -432,7 +432,7 @@ allegro: $(PROGRAM)_allegro.lst
 
 allegro_isp: allegro
 allegro_isp: TARGET = allegro
-allegro_isp: MCU_TARGET = atmega32m1
+allegro_isp: MCU_TARGET = atmega32c1
 # 512 byte boot, SPIEN
 allegro_isp: HFUSE = DF
 # Low power xtal (16MHz) 16KCK/14CK+65ms
