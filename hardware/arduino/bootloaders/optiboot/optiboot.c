@@ -305,12 +305,14 @@ int main(void) {
   UBRRL = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
 #elif __AVR_ATmega32M1__
   // Sets USART mode and enables full-duplex communication
-  LINCR  = _BV(LENA) | _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
+  //LINCR  = _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
   // Disable re-sync; 8-bit sampling
   LINBTR = 0x88;
-  // Uses LINBTR LBTR[5:0] of 4
-  LINBRRH = 0x00;
-  LINBRRL = (uint8_t)( F_CPU / (4 * BAUD_RATE));
+  // Uses LINBTR LBTR[5:0] of 8
+  //LINBRRH = 0x00;
+  LINBRR = (uint16_t)( F_CPU / (8 * BAUD_RATE)) - 1;
+  LINCR  = _BV(LENA) | _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
+  //LINDAT = 0xFF;
 #else
   UCSR0A = _BV(U2X0); //Double speed mode USART0
   UCSR0B = _BV(RXEN0) | _BV(TXEN0);
@@ -340,6 +342,9 @@ int main(void) {
     /* get character from UART */
     ch = getch();
 
+#ifdef __AVR_ATmega32M1__
+	//LED_PIN &= _BV(LED);
+#endif
     if(ch == STK_GET_PARAMETER) {
       unsigned char which = getch();
       verifySpace();
