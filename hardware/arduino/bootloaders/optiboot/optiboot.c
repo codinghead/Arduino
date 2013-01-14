@@ -312,6 +312,7 @@ int main(void) {
   //LINBRRH = 0x00;
   LINBRR = (uint16_t)( F_CPU / (8 * BAUD_RATE)) - 1;
   LINCR  = _BV(LENA) | _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
+  // Output some data to "kick-start" USART
   LINDAT = 0xAA;
 #else
   UCSR0A = _BV(U2X0); //Double speed mode USART0
