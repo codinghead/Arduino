@@ -80,11 +80,11 @@
 #endif
 
 #if defined (__AVR_ATmega32M1__)
-/* Onboard LED is connected to pin PB5 Allegro */ 
+/* Onboard LED is connected to pin PB7 Allegro */ 
 #define LED_DDR     DDRB
 #define LED_PORT    PORTB
 #define LED_PIN     PINB
-#define LED         PINB5
+#define LED         PINB7
 
 /* Ports for soft UART */
 #ifdef SOFT_UART
