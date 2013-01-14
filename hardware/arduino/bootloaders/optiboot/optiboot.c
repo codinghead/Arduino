@@ -308,9 +308,9 @@ int main(void) {
   LINCR  = _BV(LENA) | _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
   // Disable re-sync; 8-bit sampling
   LINBTR = 0x88;
-  // Uses LINBTR LBTR[5:0] of 8
+  // Uses LINBTR LBTR[5:0] of 4
   LINBRRH = 0x00;
-  LINBRRL = (uint8_t)( F_CPU / (8 * BAUD_RATE));
+  LINBRRL = (uint8_t)( F_CPU / (4 * BAUD_RATE));
 #else
   UCSR0A = _BV(U2X0); //Double speed mode USART0
   UCSR0B = _BV(RXEN0) | _BV(TXEN0);
