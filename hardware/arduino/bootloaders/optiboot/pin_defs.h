@@ -79,7 +79,7 @@
 #endif
 #endif
 
-#if defined (__AVR_ATmega32M1__)
+#if defined (__AVR_ATmega32C1__)
 /* Onboard LED is connected to pin PB7 Allegro */ 
 #define LED_DDR     DDRB
 #define LED_PORT    PORTB
