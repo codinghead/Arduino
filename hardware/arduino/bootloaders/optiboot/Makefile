@@ -426,7 +426,7 @@ allegro: MCU_TARGET = atmega32c1
 allegro: CFLAGS += '-DLED_START_FLASHES=3' '-DBAUD_RATE=115200'
 allegro: AVR_FREQ = 16000000L
 # CODINGHEAD - currently unclear what this next line actually does/specifies
-allegro: LDSECTIONS  = -Wl,--section-start=.text=0x3e00 -Wl,--section-start=.version=0x3ffe
+allegro: LDSECTIONS  = -Wl,--section-start=.text=0x3f00 -Wl,--section-start=.version=0x3ffe
 allegro: $(PROGRAM)_allegro.hex
 allegro: $(PROGRAM)_allegro.lst
 
