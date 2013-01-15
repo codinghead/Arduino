@@ -435,8 +435,8 @@ allegro_isp: TARGET = allegro
 allegro_isp: MCU_TARGET = atmega32c1
 # 512 byte boot, SPIEN
 allegro_isp: HFUSE = DF
-# Low power xtal (16MHz) 16KCK/14CK+65ms
-allegro_isp: LFUSE = E3
+# Internal OSC w/ PLL (16MHz) 16KCK/14CK+65ms
+allegro_isp: LFUSE = F3
 # 2.7V brownout
 allegro_isp: EFUSE = FF
 allegro_isp: isp
