@@ -246,7 +246,7 @@ void appStart() __attribute__ ((naked));
 #elif defined(__AVR_ATmega8__) || defined(__AVR_ATmega88__)
 #define RAMSTART (0x100)
 #define NRWWSTART (0x1800)
-#elif defined(__AVR_ATmega32M1__)
+#elif defined(__AVR_ATmega32C1__)
 #define RAMSTART (0x100)
 // NRWWSTART comes from datasheet, bootloader section
 #define NRWWSTART (0x3800)
@@ -303,7 +303,7 @@ int main(void) {
   UCSRB = _BV(RXEN) | _BV(TXEN);  // enable Rx & Tx
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);  // config USART; 8N1
   UBRRL = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
-#elif __AVR_ATmega32M1__
+#elif __AVR_ATmega32C1__
   // Sets USART mode and enables full-duplex communication
   //LINCR  = _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
   // Disable re-sync; 8-bit sampling
@@ -343,7 +343,7 @@ int main(void) {
     /* get character from UART */
     ch = getch();
 
-#ifdef __AVR_ATmega32M1__
+#ifdef __AVR_ATmega32C1__
 	//LED_PIN &= _BV(LED);
 #endif
     if(ch == STK_GET_PARAMETER) {
@@ -520,7 +520,7 @@ int main(void) {
 
 void putch(char ch) {
 #ifndef SOFT_UART
-#if __AVR_ATmega32M1__
+#if __AVR_ATmega32C1__
   // Check the LTXOK bit in the LIN status register
   while(!(LINSIR & _BV(LTXOK)));
   LINDAT = ch;
@@ -589,7 +589,7 @@ uint8_t getch(void) {
     :
       "r25"
 );
-#elif defined(__AVR_ATmega32M1__)
+#elif defined(__AVR_ATmega32C1__)
   while(!(LINSIR & _BV(LRXOK)));
   
   if (!(LINSIR & _BV(LERR))) {
