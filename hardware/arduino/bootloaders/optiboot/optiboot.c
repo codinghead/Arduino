@@ -246,10 +246,13 @@ void appStart() __attribute__ ((naked));
 #elif defined(__AVR_ATmega8__) || defined(__AVR_ATmega88__)
 #define RAMSTART (0x100)
 #define NRWWSTART (0x1800)
+// *** Changes by CODINGHEAD
 #elif defined(__AVR_ATmega32C1__)
+// RAMSTART comes from datasheet, pg 21, figure 4-2
 #define RAMSTART (0x100)
-// NRWWSTART comes from datasheet, bootloader section
+// NRWWSTART comes from datasheet, pg 293, table 24-11 for the 32k flash part
 #define NRWWSTART (0x3800)
+// *** End of changes by CODINGHEAD
 #endif
 
 /* C zero initialises all global variables. However, that requires */
