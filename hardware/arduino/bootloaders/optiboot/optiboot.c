@@ -292,6 +292,11 @@ int main(void) {
 #endif
 
   // Adaboot no-wait mod
+  // *** Comment by CODINGHEAD
+  // This code checks to see if the MCU was restarted due to an
+  // external reset (i.e. the reset pin was toggled to reset the
+  // part rather than, for example, a power-on reset)
+  // If it was, the sketch is executed instead of the bootloader.
   ch = MCUSR;
   MCUSR = 0;
   if (!(ch & _BV(EXTRF))) appStart();
@@ -306,17 +311,24 @@ int main(void) {
   UCSRB = _BV(RXEN) | _BV(TXEN);  // enable Rx & Tx
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);  // config USART; 8N1
   UBRRL = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
+// *** Changes by CODINGHEAD
+  // This modification sets up the LIN capable UART on the mega32C1 device
+  // which is substantially different to the UART on other mega MCUs
 #elif __AVR_ATmega32C1__
   // Sets USART mode and enables full-duplex communication
   //LINCR  = _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
-  // Disable re-sync; 8-bit sampling
+  // Disable re-sync; 8-time bit sampling mode
   LINBTR = 0x88;
-  // Uses LINBTR LBTR[5:0] of 8
+  // Uses LINBTR LBTR[5:0] of 8 to calcualte baud rate
   //LINBRRH = 0x00;
   LINBRR = (uint16_t)( F_CPU / (8 * BAUD_RATE)) - 1;
+  // Enable the LIN module; enable Rx and Tx side of LIN in UART mode
   LINCR  = _BV(LENA) | _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
+  // Clear Status and Interrupt register bits
+  LINSIR = 0x0F;
   // Output some data to "kick-start" USART
-  LINDAT = 0xAA;
+  //LINDAT = 0xAA;
+// *** End of changes by CODINGHEAD
 #else
   UCSR0A = _BV(U2X0); //Double speed mode USART0
   UCSR0B = _BV(RXEN0) | _BV(TXEN0);
@@ -523,11 +535,18 @@ int main(void) {
 
 void putch(char ch) {
 #ifndef SOFT_UART
+// *** Changes by CODINGHEAD
 #if __AVR_ATmega32C1__
-  // Check the LTXOK bit in the LIN status register
-  while(!(LINSIR & _BV(LTXOK)));
+  // Check the LBUSY bit in the LIN status register
+  // LBUSY is 1 only if data is still being transmitted or
+  // is being received.
+  // NOTE: This is the opposite to how UDREn in UCSRnA on
+  // a normal mega UART peripheral works!!!
+  while((LINSIR & _BV(LBUSY)));
+  // LINDAT is equivalent to UDR0
   LINDAT = ch;
 #else
+// *** End of changes by CODINGHEAD
   while (!(UCSR0A & _BV(UDRE0)));
   UDR0 = ch;
 #endif
@@ -592,15 +611,20 @@ uint8_t getch(void) {
     :
       "r25"
 );
+// *** Changes by CODINGHEAD
 #elif defined(__AVR_ATmega32C1__)
+  // This does the same as for a normal mega UART, just using the
+  // LIN module register names and bits
+  // LRXOK is 1 when a byte has been received
   while(!(LINSIR & _BV(LRXOK)));
-  
+  // LERR or's together all of the possible error bits from the LINERR
+  // register. If it is 1, there was some sort of error (framing, overrun...)
   if (!(LINSIR & _BV(LERR))) {
     watchdogReset();
   }
-
+  // LINDAT is the bi-direction UART read/write register
   ch = LINDAT;
-  
+// *** End of changes by CODINGHEAD  
 #else
   while(!(UCSR0A & _BV(RXC0)))
     ;
