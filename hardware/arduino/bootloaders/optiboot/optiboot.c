@@ -416,7 +416,11 @@ int main(void) {
       getch();
 
       // If we are in RWW section, immediately start page erase
-      if (address < NRWWSTART) __boot_page_erase_short((uint16_t)(void*)address);
+      if (address < NRWWSTART) 
+	  {
+		__boot_page_erase_short((uint16_t)(void*)address);
+		//flash_led(1);
+	  }
 
       // While that is going on, read in page contents
       bufPtr = buff;
@@ -678,6 +682,12 @@ void getNch(uint8_t count) {
   verifySpace();
 }
 
+// *** Comment by CODINGHEAD
+// This function checks that evry protocol message exchange ends with a 
+// "space", i.e. ASCII code 0x20. If not, the watchdog timer is used
+// to generate a reset which (hopefully, if present) should start the
+// users sketch. Otherwise, we output the "INSYNC" message which is 
+// 0x14 and carry on with the require task.
 void verifySpace() {
   if (getch() != CRC_EOP) {
     watchdogConfig(WATCHDOG_16MS);    // shorten WD timeout
