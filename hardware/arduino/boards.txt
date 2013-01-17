@@ -16,7 +16,8 @@ allegro.bootloader.lock_bits=0xCF
 allegro.build.mcu=atmega32c1
 allegro.build.f_cpu=16000000L
 allegro.build.core=arduino
-allegro.build.variant=standard
+allegro.build.variant=allegro
+allegro.build.verbose=true
 
 ##############################################################
 
