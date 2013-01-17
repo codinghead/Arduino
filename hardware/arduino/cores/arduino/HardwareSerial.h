@@ -95,7 +95,7 @@ class HardwareSerial : public Stream
 #define SERIAL_7O2 0x3C
 #define SERIAL_8O2 0x3E
 
-#if defined(UBRRH) || defined(UBRR0H) || defined(LINBRRL) || defined (LINBRRH)
+#if defined(UBRRH) || defined(UBRR0H) || defined (LINBRRH)
   extern HardwareSerial Serial;
 #elif defined(USBCON)
   #include "USBAPI.h"
