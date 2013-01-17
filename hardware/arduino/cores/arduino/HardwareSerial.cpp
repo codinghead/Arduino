@@ -19,6 +19,7 @@
   Modified 23 November 2006 by David A. Mellis
   Modified 28 September 2010 by Mark Sproul
   Modified 14 August 2012 by Alarus
+  Modified 10 January 2013 by CODINGHEAD (Stuart Cording)
 */
 
 #include <stdlib.h>
@@ -30,7 +31,7 @@
 
 // this next line disables the entire HardwareSerial.cpp, 
 // this is so I can support Attiny series and any other chip without a uart
-#if defined(UBRRH) || defined(UBRR0H) || defined(UBRR1H) || defined(UBRR2H) || defined(UBRR3H)
+#if defined(UBRRH) || defined(UBRR0H) || defined(UBRR1H) || defined(UBRR2H) || defined(UBRR3H) || defined(LINBRRH)
 
 #include "HardwareSerial.h"
 
@@ -41,6 +42,8 @@
 #if !defined(TXC0)
 #if defined(TXC)
 #define TXC0 TXC
+#elif defined(LTXOK)
+#define TXC0 LTXOK
 #elif defined(TXC1)
 // Some devices have uart1 but no uart0
 #define TXC0 TXC1
@@ -70,7 +73,7 @@ struct ring_buffer
   ring_buffer rx_buffer = { { 0 }, 0, 0};
   ring_buffer tx_buffer = { { 0 }, 0, 0};
 #endif
-#if defined(UBRRH) || defined(UBRR0H)
+#if defined(UBRRH) || defined(UBRR0H) || defined(LINBRRH)
   ring_buffer rx_buffer  =  { { 0 }, 0, 0 };
   ring_buffer tx_buffer  =  { { 0 }, 0, 0 };
 #endif
@@ -106,7 +109,7 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
 #else
 #if !defined(USART_RX_vect) && !defined(SIG_USART0_RECV) && \
     !defined(SIG_UART0_RECV) && !defined(USART0_RX_vect) && \
-	!defined(SIG_UART_RECV)
+	!defined(SIG_UART_RECV) && !defined(LIN_TC_vect)
   #error "Don't know what the Data Received vector is called for the first UART"
 #else
   void serialEvent() __attribute__((weak));
@@ -122,6 +125,8 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
   SIGNAL(USART0_RX_vect)
 #elif defined(SIG_UART_RECV)
   SIGNAL(SIG_UART_RECV)
+#elif defined(LIN_TC_vect)
+  SIGNAL(LIN_TC_vect)
 #endif
   {
   #if defined(UDR0)
@@ -138,6 +143,13 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
     } else {
       unsigned char c = UDR;
     };
+  #elif defined(LINDAT)
+    if (bit_is_clear(LINSIR, LIDOK)) {
+	  unsigned char c = LINDAT;
+	  store_char(c, &rx_buffer);
+	} else {
+	  unsigned char c = LINDAT;
+	}
   #else
     #error UDR not defined
   #endif
@@ -307,13 +319,21 @@ ISR(USART3_UDRE_vect)
 
 
 // Constructors ////////////////////////////////////////////////////////////////
-
+#if defined(LINBRRH) && defined(LINBRRL)
+HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
+  volatile uint8_t *linbrrh, volatile uint8_t *linbrrl,
+  volatile uint8_t *linsir, volatile uint8_t *linenir,
+  volatile uint8_t *lincr, volatile uint8_t *lindat,
+  uint8_t lcmd1, uint8_t lcmd0, uint8_t linrxok, uint8_t lintxok)
+#else
 HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   volatile uint8_t *ubrrh, volatile uint8_t *ubrrl,
   volatile uint8_t *ucsra, volatile uint8_t *ucsrb,
   volatile uint8_t *ucsrc, volatile uint8_t *udr,
   uint8_t rxen, uint8_t txen, uint8_t rxcie, uint8_t udrie, uint8_t u2x)
+#endif
 {
+#if defined(LINBRRH) && defined(LINBRRL)
   _rx_buffer = rx_buffer;
   _tx_buffer = tx_buffer;
   _ubrrh = ubrrh;
@@ -327,6 +347,21 @@ HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   _rxcie = rxcie;
   _udrie = udrie;
   _u2x = u2x;
+#else
+  _rx_buffer = rx_buffer;
+  _tx_buffer = tx_buffer;
+  _ubrrh = ubrrh;
+  _ubrrl = ubrrl;
+  _ucsra = ucsra;
+  _ucsrb = ucsrb;
+  _ucsrc = ucsrc;
+  _udr = udr;
+  _rxen = rxen;
+  _txen = txen;
+  _rxcie = rxcie;
+  _udrie = udrie;
+  _u2x = u2x;
+#endif
 }
 
 // Public Methods //////////////////////////////////////////////////////////////
@@ -499,6 +534,9 @@ HardwareSerial::operator bool() {
   HardwareSerial Serial(&rx_buffer, &tx_buffer, &UBRRH, &UBRRL, &UCSRA, &UCSRB, &UCSRC, &UDR, RXEN, TXEN, RXCIE, UDRIE, U2X);
 #elif defined(UBRR0H) && defined(UBRR0L)
   HardwareSerial Serial(&rx_buffer, &tx_buffer, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0, RXEN0, TXEN0, RXCIE0, UDRIE0, U2X0);
+#elif defined(LINBRRH) && defined(LINBRRL)
+  HardwareSerial Serial(&rx_buffer, &tx_buffer, &LINBRRH, &LINBRRL, &LINSIR, &LINENIR, &LINCR, &LINDAT, LCMD1, LCMD0, LINRXOK, LINTXOK);
+
 #elif defined(USBCON)
   // do nothing - Serial object and buffers are initialized in CDC code
 #else

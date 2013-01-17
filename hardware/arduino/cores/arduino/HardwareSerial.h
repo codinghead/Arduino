@@ -35,6 +35,18 @@ class HardwareSerial : public Stream
   private:
     ring_buffer *_rx_buffer;
     ring_buffer *_tx_buffer;
+#if defined(LINBRRH) || && defined(LINBRRL)
+	volatile uint8_t *_linbrrh;
+    volatile uint8_t *_linbrrl;
+    volatile uint8_t *_linsir;
+    volatile uint8_t *_linenir;
+    volatile uint8_t *_lincr;
+    volatile uint8_t *_lindat;
+    uint8_t _lcmd1;
+    uint8_t _lcmd0;
+    uint8_t _linrxok;
+    uint8_t _lintxok;
+#else
     volatile uint8_t *_ubrrh;
     volatile uint8_t *_ubrrl;
     volatile uint8_t *_ucsra;
@@ -46,13 +58,22 @@ class HardwareSerial : public Stream
     uint8_t _rxcie;
     uint8_t _udrie;
     uint8_t _u2x;
+#endif
     bool transmitting;
   public:
+#if defined(LINBRRH) || && defined(LINBRRL)
+    HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
+      volatile uint8_t *linbrrh, volatile uint8_t *linbrrl,
+      volatile uint8_t *linsir, volatile uint8_t *linenir,
+      volatile uint8_t *lincr, volatile uint8_t *lindat,
+      uint8_t lcmd1, uint8_t lcmd0, uint8_t linrxok, uint8_t lintxok);
+#else
     HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
       volatile uint8_t *ubrrh, volatile uint8_t *ubrrl,
       volatile uint8_t *ucsra, volatile uint8_t *ucsrb,
       volatile uint8_t *ucsrc, volatile uint8_t *udr,
       uint8_t rxen, uint8_t txen, uint8_t rxcie, uint8_t udrie, uint8_t u2x);
+#endif
     void begin(unsigned long);
     void begin(unsigned long, uint8_t);
     void end();
@@ -70,6 +91,11 @@ class HardwareSerial : public Stream
 };
 
 // Define config for Serial.begin(baud, config);
+#if defined(LINBRRH) && defined(LINBRRL)
+#define SERIAL_8N1 0x00
+#define SERIAL_8E1 0x01
+#define SERIAL_8O1 0x02
+#else
 #define SERIAL_5N1 0x00
 #define SERIAL_6N1 0x02
 #define SERIAL_7N1 0x04
@@ -94,6 +120,7 @@ class HardwareSerial : public Stream
 #define SERIAL_6O2 0x3A
 #define SERIAL_7O2 0x3C
 #define SERIAL_8O2 0x3E
+#endif
 
 #if defined(UBRRH) || defined(UBRR0H) || defined (LINBRRH)
   extern HardwareSerial Serial;
