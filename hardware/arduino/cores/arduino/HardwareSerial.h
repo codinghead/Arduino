@@ -18,6 +18,7 @@
 
   Modified 28 September 2010 by Mark Sproul
   Modified 14 August 2012 by Alarus
+  Modified 13 January 2013 by CODINGHEAD (Stuart Cording)
 */
 
 #ifndef HardwareSerial_h
@@ -94,7 +95,7 @@ class HardwareSerial : public Stream
 #define SERIAL_7O2 0x3C
 #define SERIAL_8O2 0x3E
 
-#if defined(UBRRH) || defined(UBRR0H)
+#if defined(UBRRH) || defined(UBRR0H) || defined(LINBRRL) || defined (LINBRRH)
   extern HardwareSerial Serial;
 #elif defined(USBCON)
   #include "USBAPI.h"
