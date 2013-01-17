@@ -20,6 +20,7 @@
   Boston, MA  02111-1307  USA
 
   $Id: wiring.h 239 2007-01-12 17:58:39Z mellis $
+  Modified 13 January 2013 by CODINGHEAD
 */
 
 #ifndef WiringPrivate_h
@@ -56,7 +57,7 @@ extern "C"{
 #define EXTERNAL_NUM_INTERRUPTS 8
 #elif defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__)
 #define EXTERNAL_NUM_INTERRUPTS 3
-#elif defined(__AVR_ATmega32U4__)
+#elif defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega32C1__)
 #define EXTERNAL_NUM_INTERRUPTS 4
 #else
 #define EXTERNAL_NUM_INTERRUPTS 2
