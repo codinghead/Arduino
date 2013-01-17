@@ -299,7 +299,9 @@ int main(void) {
   // If it was, the sketch is executed instead of the bootloader.
   ch = MCUSR;
   MCUSR = 0;
+#if 1
   if (!(ch & _BV(EXTRF))) appStart();
+#endif 
 
 #if LED_START_FLASHES > 0
   // Set up Timer 1 for timeout counter
@@ -416,9 +418,9 @@ int main(void) {
       getch();
 
       // If we are in RWW section, immediately start page erase
-      if (address < NRWWSTART) 
-	  {
-		__boot_page_erase_short((uint16_t)(void*)address);
+      if (address < NRWWSTART) {
+		//__boot_page_erase_short((uint16_t)(void*)address);
+		boot_page_erase((uint16_t)(void*)address);
 		//flash_led(1);
 	  }
 
@@ -429,7 +431,10 @@ int main(void) {
 
       // If we are in NRWW section, page erase has to be delayed until now.
       // Todo: Take RAMPZ into account
-      if (address >= NRWWSTART) __boot_page_erase_short((uint16_t)(void*)address);
+      if (address >= NRWWSTART) {
+		//__boot_page_erase_short((uint16_t)(void*)address);
+		boot_page_erase((uint16_t)(void*)address);
+	  }
 
       // Read command terminator, start reply
       verifySpace();
