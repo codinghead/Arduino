@@ -47,8 +47,9 @@ class HardwareSerial : public Stream
 	volatile uint8_t *_linbtr;
     uint8_t _lcmd1;
     uint8_t _lcmd0;
-    uint8_t _linrxok;
-    uint8_t _lintxok;
+    uint8_t _lrxok;
+    uint8_t _ltxok;
+	uint8_t _lentxok;
 #else
     volatile uint8_t *_ubrrh;
     volatile uint8_t *_ubrrl;
@@ -72,7 +73,7 @@ class HardwareSerial : public Stream
       volatile uint8_t *linsir, volatile uint8_t *linenir,
       volatile uint8_t *lincr, volatile uint8_t *lindat,
 	  volatile uint8_t *linbtr,
-      uint8_t lcmd1, uint8_t lcmd0, uint8_t linrxok, uint8_t lintxok);
+      uint8_t lcmd1, uint8_t lcmd0, uint8_t lrxok, uint8_t ltxok, uint8_t lentxok);
 #else
     HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
       volatile uint8_t *ubrrh, volatile uint8_t *ubrrl,

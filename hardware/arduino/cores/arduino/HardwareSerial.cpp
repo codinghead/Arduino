@@ -75,7 +75,7 @@ struct ring_buffer
   ring_buffer rx_buffer = { { 0 }, 0, 0};
   ring_buffer tx_buffer = { { 0 }, 0, 0};
 #endif
-#if defined(UBRRH) || defined(UBRR0H) || defined(LINBRRH)
+#if defined(UBRRH) || defined(UBRR0H) || defined(LIN_UART)
   ring_buffer rx_buffer  =  { { 0 }, 0, 0 };
   ring_buffer tx_buffer  =  { { 0 }, 0, 0 };
 #endif
@@ -113,6 +113,7 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
     !defined(SIG_UART0_RECV) && !defined(USART0_RX_vect) && \
 	!defined(SIG_UART_RECV) && !defined(LIN_TC_vect)
   #error "Don't know what the Data Received vector is called for the first UART"
+  #error "or the General LIN vector for the LIN UART"
 #else
   void serialEvent() __attribute__((weak));
   void serialEvent() {}
@@ -179,6 +180,7 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
   #else
     #error "UDR or LINDAT not defined"
   #endif
+}
 #endif
 #endif
 
@@ -249,14 +251,14 @@ void serialEventRun(void)
 #endif
 }
 
-
 // NOTE: No support for LIN based UART here on Transmit size
 // as it is integrated above in the "Receive" interrupt as both
 // Tx and Rx are handled by one vector on this module.
+#if !defined(LIN_UART)
 #if !defined(USART0_UDRE_vect) && defined(USART1_UDRE_vect)
 // do nothing - on the 32u4 the first USART is USART1
-#elif !defined(UART0_UDRE_vect) && !defined(UART_UDRE_vect) && !defined(USART0_UDRE_vect) && \
-    !defined(USART_UDRE_vect) && !defined(LIN_TC_vect)
+#else
+#if !defined(UART0_UDRE_vect) && !defined(UART_UDRE_vect) && !defined(USART0_UDRE_vect) && !defined(USART_UDRE_vect)
   #error "Don't know what the Data Register Empty vector is called for the first UART"
 #elif defined(UART0_UDRE_vect)
 ISR(UART0_UDRE_vect)
@@ -267,7 +269,6 @@ ISR(USART0_UDRE_vect)
 #elif defined(USART_UDRE_vect)
 ISR(USART_UDRE_vect)
 #endif
-#if !defined(LIN_UART)
 {
   if (tx_buffer.head == tx_buffer.tail) {
 	// Buffer empty, so disable interrupts
@@ -291,7 +292,6 @@ ISR(USART_UDRE_vect)
   #endif
   }
 }
-#ednif
 #endif
 #endif
 
@@ -354,7 +354,7 @@ HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   volatile uint8_t *linsir, volatile uint8_t *linenir,
   volatile uint8_t *lincr, volatile uint8_t *lindat,
   volatile uint8_t *linbtr,
-  uint8_t lcmd1, uint8_t lcmd0, uint8_t linrxok, uint8_t lintxok)
+  uint8_t lcmd1, uint8_t lcmd0, uint8_t lrxok, uint8_t ltxok, uint8_t lentxok)
 #else
 HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   volatile uint8_t *ubrrh, volatile uint8_t *ubrrl,
@@ -374,8 +374,9 @@ HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   _lindat    = lindat;
   _lcmd1     = lcmd1;
   _lcmd0     = lcmd0;
-  _linrxok   = linrxok;
-  _lintxok   = lintxok;
+  _lrxok     = lrxok;
+  _ltxok     = ltxok;
+  _lentxok   = lentxok;
 #else
   _rx_buffer = rx_buffer;
   _tx_buffer = tx_buffer;
@@ -410,17 +411,17 @@ void HardwareSerial::begin(unsigned long baud)
   if (baud == 57600) {
     use_u2x = false;
   }
-
+#endif
 #ifdef LIN_UART
   // Disable re-sync; 8-time bit sampling mode
-  _linbtr = 0x88;
+  *_linbtr = 0x88;
   // Use LINBTR LBTR[5:0] of 8 to calcualte baud rate
   // NOTE: Baud rate is supposed to be very accurate
   // so no need for complex checking like with normal
   // mega USART
-  baud_setting = (F_CPU / (8 * baud)) - 1);
-  _linbrrh = (uint8_t)(baud_setting >> 8);
-  _linbrrl = (uint8_t)(baud_setting & 0x00FF);
+  baud_setting = (F_CPU / (8 * baud)) - 1;
+  *_linbrrh = (uint8_t)(baud_setting >> 8);
+  *_linbrrl = (uint8_t)(baud_setting & 0x00FF);
 #else
 try_again:
   
@@ -453,11 +454,11 @@ try_again:
   // Activate Rx side
   sbi(*_lincr, _lcmd1);
   // Activate UART mode (instead of LIN mode)
-  sbi(*_lincr, _lcmd2);
+  sbi(*_lincr, LCMD2);
   // Turn on UART
-  sbi(*_lincr, _lena);
+  sbi(*_lincr, LENA);
   // Clear status and interrupt register bits
-  _linsir = 0x0F;
+  *_linsir = 0x0F;
 #else
   sbi(*_ucsrb, _rxen);
   sbi(*_ucsrb, _txen);
@@ -485,14 +486,14 @@ void HardwareSerial::begin(unsigned long baud, byte config)
 
 #ifdef LIN_UART
   // Disable re-sync; 8-time bit sampling mode
-  _linbtr = 0x88;
+  *_linbtr = 0x88;
   // Use LINBTR LBTR[5:0] of 8 to calcualte baud rate
   // NOTE: Baud rate is supposed to be very accurate
   // so no need for complex checking like with normal
   // mega USART
-  baud_setting = (F_CPU / (8 * baud)) - 1);
-  _linbrrh = (uint8_t)(baud_setting >> 8);
-  _linbrrl = (uint8_t)(baud_setting & 0x00FF);
+  baud_setting = (F_CPU / (8 * baud)) - 1;
+  *_linbrrh = (uint8_t)(baud_setting >> 8);
+  *_linbrrl = (uint8_t)(baud_setting & 0x00FF);
 #else
 try_again:
   
@@ -528,11 +529,11 @@ try_again:
   // Activate Rx side
   sbi(*_lincr, _lcmd1);
   // Activate UART mode (instead of LIN mode)
-  sbi(*_lincr, _lcmd2);
+  sbi(*_lincr, LCMD2);
   // Turn on UART
-  sbi(*_lincr, _lena);
+  sbi(*_lincr, LENA);
   // Clear status and interrupt register bits
-  _linsir = 0x0F;
+  *_linsir = 0x0F;
 #else
   *_ucsrc = config;
 
@@ -554,8 +555,8 @@ void HardwareSerial::end()
   cbi(*_lincr, _lcmd0);
   cbi(*_lincr, _lcmd1);
   // Turn off Rx and Tx interrupts
-  cbi(*_linenir, _linrxok);
-  cbi(*_linenir, _lintxok);
+  cbi(*_linenir, _lrxok);
+  cbi(*_linenir, _ltxok);
 #else
   cbi(*_ucsrb, _rxen);
   cbi(*_ucsrb, _txen);
@@ -643,7 +644,7 @@ HardwareSerial::operator bool() {
 #elif defined(UBRR0H) && defined(UBRR0L)
   HardwareSerial Serial(&rx_buffer, &tx_buffer, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0, RXEN0, TXEN0, RXCIE0, UDRIE0, U2X0);
 #elif defined(LIN_UART)
-  HardwareSerial Serial(&rx_buffer, &tx_buffer, &LINBRRH, &LINBRRL, &LINSIR, &LINENIR, &LINCR, &LINDAT, &LINBTR, LCMD1, LCMD0, LINRXOK, LINTXOK);
+  HardwareSerial Serial(&rx_buffer, &tx_buffer, &LINBRRH, &LINBRRL, &LINSIR, &LINENIR, &LINCR, &LINDAT, &LINBTR, LCMD1, LCMD0, LRXOK, LTXOK, LENTXOK);
 
 #elif defined(USBCON)
   // do nothing - Serial object and buffers are initialized in CDC code
