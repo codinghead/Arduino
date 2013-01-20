@@ -102,8 +102,8 @@ class HardwareSerial : public Stream
 // LIN Module only supports 8-bit, none/even/odd parity, 1 stop bit
 // in UART mode
 #define SERIAL_8N1 0x00
-#define SERIAL_8E1 0x01
-#define SERIAL_8O1 0x02
+#define SERIAL_8E1 0x10
+#define SERIAL_8O1 0x20
 #else
 #define SERIAL_5N1 0x00
 #define SERIAL_6N1 0x02
