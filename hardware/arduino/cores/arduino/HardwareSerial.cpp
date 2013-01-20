@@ -148,7 +148,7 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
     } else {
       unsigned char c = UDR;
     };
-  #elif defined(LINDAT)
+  #elif defined(LIN_UART)
 	// NOTE: Rx AND Tx interrupts are handled together here for the
 	// LIN Module in UART mode.
 	
@@ -372,6 +372,7 @@ HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   _linenir   = linenir;
   _lincr     = lincr;
   _lindat    = lindat;
+  _linbtr    = linbtr;
   _lcmd1     = lcmd1;
   _lcmd0     = lcmd0;
   _lrxok     = lrxok;
@@ -459,6 +460,10 @@ try_again:
   sbi(*_lincr, LENA);
   // Clear status and interrupt register bits
   *_linsir = 0x0F;
+  // Enable rx interrupt
+  sbi(*_linenir, LENRXOK);
+  // Disable tx interrupt
+  cbi(*_linenir, _lentxok);
 #else
   sbi(*_ucsrb, _rxen);
   sbi(*_ucsrb, _txen);
@@ -522,7 +527,7 @@ try_again:
 #endif
 
 #ifdef LIN_UART
-  // Selects UART mode (8-bit, parity choice, 1 stop bit)
+  // Selects user required UART mode (8-bit, parity choice, 1 stop bit)
   *_lincr = config;
   // Activate Tx side
   sbi(*_lincr, _lcmd0);
@@ -534,6 +539,10 @@ try_again:
   sbi(*_lincr, LENA);
   // Clear status and interrupt register bits
   *_linsir = 0x0F;
+  // Enable rx interrupt
+  sbi(*_linenir, LENRXOK);
+  // Disable tx interrupt
+  cbi(*_linenir, _lentxok);
 #else
   *_ucsrc = config;
 
@@ -555,8 +564,8 @@ void HardwareSerial::end()
   cbi(*_lincr, _lcmd0);
   cbi(*_lincr, _lcmd1);
   // Turn off Rx and Tx interrupts
-  cbi(*_linenir, _lrxok);
-  cbi(*_linenir, _ltxok);
+  cbi(*_linenir, LENRXOK);
+  cbi(*_linenir, _lentxok);
 #else
   cbi(*_ucsrb, _rxen);
   cbi(*_ucsrb, _txen);
@@ -615,15 +624,31 @@ size_t HardwareSerial::write(uint8_t c)
   // ???: return 0 here instead?
   while (i == _tx_buffer->tail)
     ;
-	
-  _tx_buffer->buffer[_tx_buffer->head] = c;
-  _tx_buffer->head = i;
 
 #ifdef LIN_UART
+  // NOTE: LIN UART doesn't have a "Tx Buffer Empty" flag, so we have to
+  // kick-start the process.
+  // Check if we are transmitting yet or not...
+  if (transmitting == false)
+  {
+    // If not, send this byte
+    LINDAT = c;
+	// Further transmits will be now interrupt triggered
+  }
+  else
+  {
+    // If we are, store this byte in the buffer to be
+	// sent when we're ready
+	_tx_buffer->buffer[_tx_buffer->head] = c;
+    _tx_buffer->head = i;
+  }
   sbi(*_linenir, _lentxok);
   transmitting = true;
   sbi(*_linsir, _ltxok);
-#else  
+#else
+  _tx_buffer->buffer[_tx_buffer->head] = c;
+  _tx_buffer->head = i;
+  
   sbi(*_ucsrb, _udrie);
   // clear the TXC bit -- "can be cleared by writing a one to its bit location"
   transmitting = true;
