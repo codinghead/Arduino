@@ -35,13 +35,16 @@ class HardwareSerial : public Stream
   private:
     ring_buffer *_rx_buffer;
     ring_buffer *_tx_buffer;
-#if defined(LINBRRH) || && defined(LINBRRL)
+#if defined(LINBRRH) && defined(LINBRRL)
+// Definition is almost the same as for normal MEGA USART, but there is no
+// "double speed" u2x bit
 	volatile uint8_t *_linbrrh;
     volatile uint8_t *_linbrrl;
     volatile uint8_t *_linsir;
     volatile uint8_t *_linenir;
     volatile uint8_t *_lincr;
     volatile uint8_t *_lindat;
+	volatile uint8_t *_linbtr;
     uint8_t _lcmd1;
     uint8_t _lcmd0;
     uint8_t _linrxok;
@@ -61,11 +64,14 @@ class HardwareSerial : public Stream
 #endif
     bool transmitting;
   public:
-#if defined(LINBRRH) || && defined(LINBRRL)
+#if defined(LINBRRH) && defined(LINBRRL)
+// Definition is almost the same as for normal MEGA USART, but there is no
+// "double speed" u2x bit
     HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
       volatile uint8_t *linbrrh, volatile uint8_t *linbrrl,
       volatile uint8_t *linsir, volatile uint8_t *linenir,
       volatile uint8_t *lincr, volatile uint8_t *lindat,
+	  volatile uint8_t *linbtr,
       uint8_t lcmd1, uint8_t lcmd0, uint8_t linrxok, uint8_t lintxok);
 #else
     HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
@@ -92,6 +98,8 @@ class HardwareSerial : public Stream
 
 // Define config for Serial.begin(baud, config);
 #if defined(LINBRRH) && defined(LINBRRL)
+// LIN Module only supports 8-bit, none/even/odd parity, 1 stop bit
+// in UART mode
 #define SERIAL_8N1 0x00
 #define SERIAL_8E1 0x01
 #define SERIAL_8O1 0x02

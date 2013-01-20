@@ -43,12 +43,14 @@
 #if defined(TXC)
 #define TXC0 TXC
 #elif defined(LTXOK)
-#define TXC0 LTXOK
+// There is no "TXC0" in LIN module. To make definitions easier
+// we define that this is a "LIN_UART"
+#define LIN_UART
 #elif defined(TXC1)
 // Some devices have uart1 but no uart0
 #define TXC0 TXC1
 #else
-#error TXC0 not definable in HardwareSerial.h
+#error "TXC0 (or LTXOK) not definable in HardwareSerial.h"
 #endif
 #endif
 
@@ -126,6 +128,8 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
 #elif defined(SIG_UART_RECV)
   SIGNAL(SIG_UART_RECV)
 #elif defined(LIN_TC_vect)
+// NOTE: There are no seperate RX/TX interrupts, just a single
+// "something was sent/was received" interrupt.
   SIGNAL(LIN_TC_vect)
 #endif
   {
@@ -144,16 +148,37 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
       unsigned char c = UDR;
     };
   #elif defined(LINDAT)
-    if (bit_is_clear(LINSIR, LIDOK)) {
+	// NOTE: Rx AND Tx interrupts are handled together here for the
+	// LIN Module in UART mode.
+	
+    // Check there were no transfer errors and
+	// check if it was a receive interrupt
+    if (bit_is_clear(LINSIR, LIDOK) && bit_is_set(LINSIR, LRXOK)) {
+	  // Reading LINDAT also clears interrupt flag
 	  unsigned char c = LINDAT;
 	  store_char(c, &rx_buffer);
 	} else {
+	  // Reading LINDAT also clears interrupt flag
 	  unsigned char c = LINDAT;
 	}
+	
+	// If the transmit buffer is empty, send more data
+	if (bit_is_set(LINSIR, LTXOK)) {
+		if (tx_buffer.head == tx_buffer.tail) {
+		  // Buffer empty, so disable interrupts
+		  cbi(LINENIR, LENTXOK);
+        }
+        else {
+		  // There is more data in the output buffer. Send the next byte
+		  unsigned char c = tx_buffer.buffer[tx_buffer.tail];
+		  tx_buffer.tail = (tx_buffer.tail + 1) % SERIAL_BUFFER_SIZE;
+			
+          LINDAT = c;
+		}
+	}
   #else
-    #error UDR not defined
+    #error "UDR or LINDAT not defined"
   #endif
-  }
 #endif
 #endif
 
@@ -225,13 +250,15 @@ void serialEventRun(void)
 }
 
 
+// NOTE: No support for LIN based UART here on Transmit size
+// as it is integrated above in the "Receive" interrupt as both
+// Tx and Rx are handled by one vector on this module.
 #if !defined(USART0_UDRE_vect) && defined(USART1_UDRE_vect)
 // do nothing - on the 32u4 the first USART is USART1
-#else
-#if !defined(UART0_UDRE_vect) && !defined(UART_UDRE_vect) && !defined(USART0_UDRE_vect) && !defined(USART_UDRE_vect)
+#elif !defined(UART0_UDRE_vect) && !defined(UART_UDRE_vect) && !defined(USART0_UDRE_vect) && \
+    !defined(USART_UDRE_vect) && !defined(LIN_TC_vect)
   #error "Don't know what the Data Register Empty vector is called for the first UART"
-#else
-#if defined(UART0_UDRE_vect)
+#elif defined(UART0_UDRE_vect)
 ISR(UART0_UDRE_vect)
 #elif defined(UART_UDRE_vect)
 ISR(UART_UDRE_vect)
@@ -240,6 +267,7 @@ ISR(USART0_UDRE_vect)
 #elif defined(USART_UDRE_vect)
 ISR(USART_UDRE_vect)
 #endif
+#if !defined(LIN_UART)
 {
   if (tx_buffer.head == tx_buffer.tail) {
 	// Buffer empty, so disable interrupts
@@ -263,6 +291,7 @@ ISR(USART_UDRE_vect)
   #endif
   }
 }
+#ednif
 #endif
 #endif
 
@@ -319,11 +348,12 @@ ISR(USART3_UDRE_vect)
 
 
 // Constructors ////////////////////////////////////////////////////////////////
-#if defined(LINBRRH) && defined(LINBRRL)
+#if defined(LIN_UART)
 HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   volatile uint8_t *linbrrh, volatile uint8_t *linbrrl,
   volatile uint8_t *linsir, volatile uint8_t *linenir,
   volatile uint8_t *lincr, volatile uint8_t *lindat,
+  volatile uint8_t *linbtr,
   uint8_t lcmd1, uint8_t lcmd0, uint8_t linrxok, uint8_t lintxok)
 #else
 HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
@@ -333,20 +363,19 @@ HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
   uint8_t rxen, uint8_t txen, uint8_t rxcie, uint8_t udrie, uint8_t u2x)
 #endif
 {
-#if defined(LINBRRH) && defined(LINBRRL)
+#if defined(LIN_UART)
   _rx_buffer = rx_buffer;
   _tx_buffer = tx_buffer;
-  _ubrrh = ubrrh;
-  _ubrrl = ubrrl;
-  _ucsra = ucsra;
-  _ucsrb = ucsrb;
-  _ucsrc = ucsrc;
-  _udr = udr;
-  _rxen = rxen;
-  _txen = txen;
-  _rxcie = rxcie;
-  _udrie = udrie;
-  _u2x = u2x;
+  _linbrrh   = linbrrh;
+  _linbrrl   = linbrrl;
+  _linsir    = linsir;
+  _linenir   = linenir;
+  _lincr     = lincr;
+  _lindat    = lindat;
+  _lcmd1     = lcmd1;
+  _lcmd0     = lcmd0;
+  _linrxok   = linrxok;
+  _lintxok   = lintxok;
 #else
   _rx_buffer = rx_buffer;
   _tx_buffer = tx_buffer;
@@ -369,17 +398,30 @@ HardwareSerial::HardwareSerial(ring_buffer *rx_buffer, ring_buffer *tx_buffer,
 void HardwareSerial::begin(unsigned long baud)
 {
   uint16_t baud_setting;
+#if !defined(LIN_UART)
   bool use_u2x = true;
+#endif
 
-#if F_CPU == 16000000UL
+// This is irrelevant for the LIN UART
+#if F_CPU == 16000000UL && !defined(LIN_UART)
   // hardcoded exception for compatibility with the bootloader shipped
   // with the Duemilanove and previous boards and the firmware on the 8U2
   // on the Uno and Mega 2560.
   if (baud == 57600) {
     use_u2x = false;
   }
-#endif
 
+#ifdef LIN_UART
+  // Disable re-sync; 8-time bit sampling mode
+  _linbtr = 0x88;
+  // Use LINBTR LBTR[5:0] of 8 to calcualte baud rate
+  // NOTE: Baud rate is supposed to be very accurate
+  // so no need for complex checking like with normal
+  // mega USART
+  baud_setting = (F_CPU / (8 * baud)) - 1);
+  _linbrrh = (uint8_t)(baud_setting >> 8);
+  _linbrrl = (uint8_t)(baud_setting & 0x00FF);
+#else
 try_again:
   
   if (use_u2x) {
@@ -399,22 +441,40 @@ try_again:
   // assign the baud_setting, a.k.a. ubbr (USART Baud Rate Register)
   *_ubrrh = baud_setting >> 8;
   *_ubrrl = baud_setting;
+#endif
 
   transmitting = false;
 
+#ifdef LIN_UART
+  // Clear config register (also selects 8-bit, none, 1 stop bit)
+  *_lincr = 0x00;
+  // Activate Tx side
+  sbi(*_lincr, _lcmd0);
+  // Activate Rx side
+  sbi(*_lincr, _lcmd1);
+  // Activate UART mode (instead of LIN mode)
+  sbi(*_lincr, _lcmd2);
+  // Turn on UART
+  sbi(*_lincr, _lena);
+  // Clear status and interrupt register bits
+  _linsir = 0x0F;
+#else
   sbi(*_ucsrb, _rxen);
   sbi(*_ucsrb, _txen);
   sbi(*_ucsrb, _rxcie);
   cbi(*_ucsrb, _udrie);
+#endif
 }
 
 void HardwareSerial::begin(unsigned long baud, byte config)
 {
   uint16_t baud_setting;
   uint8_t current_config;
+#if !defined(LIN_UART)
   bool use_u2x = true;
+#endif
 
-#if F_CPU == 16000000UL
+#if F_CPU == 16000000UL && !defined(LIN_UART)
   // hardcoded exception for compatibility with the bootloader shipped
   // with the Duemilanove and previous boards and the firmware on the 8U2
   // on the Uno and Mega 2560.
@@ -423,6 +483,17 @@ void HardwareSerial::begin(unsigned long baud, byte config)
   }
 #endif
 
+#ifdef LIN_UART
+  // Disable re-sync; 8-time bit sampling mode
+  _linbtr = 0x88;
+  // Use LINBTR LBTR[5:0] of 8 to calcualte baud rate
+  // NOTE: Baud rate is supposed to be very accurate
+  // so no need for complex checking like with normal
+  // mega USART
+  baud_setting = (F_CPU / (8 * baud)) - 1);
+  _linbrrh = (uint8_t)(baud_setting >> 8);
+  _linbrrl = (uint8_t)(baud_setting & 0x00FF);
+#else
 try_again:
   
   if (use_u2x) {
@@ -442,17 +513,34 @@ try_again:
   // assign the baud_setting, a.k.a. ubbr (USART Baud Rate Register)
   *_ubrrh = baud_setting >> 8;
   *_ubrrl = baud_setting;
+#endif
 
   //set the data bits, parity, and stop bits
 #if defined(__AVR_ATmega8__)
   config |= 0x80; // select UCSRC register (shared with UBRRH)
 #endif
+
+#ifdef LIN_UART
+  // Selects UART mode (8-bit, parity choice, 1 stop bit)
+  *_lincr = config;
+  // Activate Tx side
+  sbi(*_lincr, _lcmd0);
+  // Activate Rx side
+  sbi(*_lincr, _lcmd1);
+  // Activate UART mode (instead of LIN mode)
+  sbi(*_lincr, _lcmd2);
+  // Turn on UART
+  sbi(*_lincr, _lena);
+  // Clear status and interrupt register bits
+  _linsir = 0x0F;
+#else
   *_ucsrc = config;
-  
+
   sbi(*_ucsrb, _rxen);
   sbi(*_ucsrb, _txen);
   sbi(*_ucsrb, _rxcie);
   cbi(*_ucsrb, _udrie);
+#endif
 }
 
 void HardwareSerial::end()
@@ -461,11 +549,20 @@ void HardwareSerial::end()
   while (_tx_buffer->head != _tx_buffer->tail)
     ;
 
+#ifdef LIN_UART
+  // Turn off Rx and Tx side of UART
+  cbi(*_lincr, _lcmd0);
+  cbi(*_lincr, _lcmd1);
+  // Turn off Rx and Tx interrupts
+  cbi(*_linenir, _linrxok);
+  cbi(*_linenir, _lintxok);
+#else
   cbi(*_ucsrb, _rxen);
   cbi(*_ucsrb, _txen);
   cbi(*_ucsrb, _rxcie);  
   cbi(*_ucsrb, _udrie);
-  
+#endif
+
   // clear any received data
   _rx_buffer->head = _rx_buffer->tail;
 }
@@ -498,8 +595,13 @@ int HardwareSerial::read(void)
 
 void HardwareSerial::flush()
 {
+  // LINDAT is kept full while the buffer is not empty, so LTXOK triggers when EMPTY && SENT
+#ifdef LIN_UART
+  while (transmitting && ! (*_linsir & _BV(LTXOK)));
+#else
   // UDR is kept full while the buffer is not empty, so TXC triggers when EMPTY && SENT
   while (transmitting && ! (*_ucsra & _BV(TXC0)));
+#endif
   transmitting = false;
 }
 
@@ -515,11 +617,17 @@ size_t HardwareSerial::write(uint8_t c)
 	
   _tx_buffer->buffer[_tx_buffer->head] = c;
   _tx_buffer->head = i;
-	
+
+#ifdef LIN_UART
+  sbi(*_linenir, _lentxok);
+  transmitting = true;
+  sbi(*_linsir, _ltxok);
+#else  
   sbi(*_ucsrb, _udrie);
   // clear the TXC bit -- "can be cleared by writing a one to its bit location"
   transmitting = true;
   sbi(*_ucsra, TXC0);
+#endif
   
   return 1;
 }
@@ -534,8 +642,8 @@ HardwareSerial::operator bool() {
   HardwareSerial Serial(&rx_buffer, &tx_buffer, &UBRRH, &UBRRL, &UCSRA, &UCSRB, &UCSRC, &UDR, RXEN, TXEN, RXCIE, UDRIE, U2X);
 #elif defined(UBRR0H) && defined(UBRR0L)
   HardwareSerial Serial(&rx_buffer, &tx_buffer, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UCSR0C, &UDR0, RXEN0, TXEN0, RXCIE0, UDRIE0, U2X0);
-#elif defined(LINBRRH) && defined(LINBRRL)
-  HardwareSerial Serial(&rx_buffer, &tx_buffer, &LINBRRH, &LINBRRL, &LINSIR, &LINENIR, &LINCR, &LINDAT, LCMD1, LCMD0, LINRXOK, LINTXOK);
+#elif defined(LIN_UART)
+  HardwareSerial Serial(&rx_buffer, &tx_buffer, &LINBRRH, &LINBRRL, &LINSIR, &LINENIR, &LINCR, &LINDAT, &LINBTR, LCMD1, LCMD0, LINRXOK, LINTXOK);
 
 #elif defined(USBCON)
   // do nothing - Serial object and buffers are initialized in CDC code
