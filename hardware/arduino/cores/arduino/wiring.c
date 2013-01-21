@@ -320,5 +320,8 @@ void init()
 	UCSRB = 0;
 #elif defined(UCSR0B)
 	UCSR0B = 0;
+#elif defined(LINCR)
+    // Reset the LIN UART back to default parameters
+    sbi(LINCR, LSWRES);
 #endif
 }
